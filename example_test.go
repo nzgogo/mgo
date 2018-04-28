@@ -17,13 +17,13 @@ func ExampleCredential_x509Authentication() {
 	// openssl:
 	//
 	// 		openssl x509 -in client.crt -inform PEM -noout -subject -nameopt RFC2253
-	// 		subject= CN=Example App,OU=MongoDB Client Authentication,O=GlobalSign,C=GB
+	// 		subject= CN=Example App,OU=MongoDB Client Authentication,O=nzgogo,C=GB
 	//
 	//
 	// And then create the user in MongoDB with the above DN:
 	//
 	//		db.getSiblingDB("$external").runCommand({
-	//			createUser: "CN=Example App,OU=MongoDB Client Authentication,O=GlobalSign,C=GB",
+	//			createUser: "CN=Example App,OU=MongoDB Client Authentication,O=nzgogo,C=GB",
 	//			roles: [
 	//				{ role: 'readWrite', db: 'bananas' },
 	//				{ role: 'userAdminAnyDatabase', db: 'admin' }

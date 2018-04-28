@@ -5,3 +5,6 @@ _harness
 *.xml
 .idea/vcs.xml
 .idea/vcs.xml
+*.yml
+.idea/.name
+.travis.yml

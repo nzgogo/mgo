@@ -1,12 +1,12 @@
 package mgo
 
 import (
-"crypto/tls"
-"github.com/nzgogo/mgo"
-"github.com/nzgogo/mgo/bson"
-"net"
-"strings"
-"time"
+	"crypto/tls"
+	"github.com/nzgogo/mgo"
+	"github.com/nzgogo/mgo/bson"
+	"net"
+	"strings"
+	"time"
 )
 
 const (
@@ -263,6 +263,44 @@ func (m *GCollect) UpdateAll(selector interface{}, update interface{}) (info *mg
 	return m.Collection.UpdateAll(newSelector, update)
 }
 
+// Upsert finds a single document (without field deleted_at) matching the
+// provided selector document and modifies it according to the update
+// document.  If no document matching the selector is found, the update
+// document is applied to the selector document and the result is inserted
+// in the collection.
+// If the session is in safe mode (see SetSafe) details of the executed
+// operation are returned in info, or an error of type *LastError when
+// some problem is detected.
+//
+// Relevant documentation:
+//
+//     http://www.mongodb.org/display/DOCS/Updating
+//     http://www.mongodb.org/display/DOCS/Atomic+Operations
+//
+func (m *GCollect) Upsert(selector interface{}, update interface{}) (info *mgo.ChangeInfo, err error) {
+	var newSelector interface{}
+	if s, ok := selector.(bson.M); ok {
+		newSelector = bson.M{"$and": []bson.M{s, {"delete_at": bson.M{"$exists": false}}}}
+	} else {
+		bytes, _ := bson.Marshal(selector)
+		origin := bson.M{}
+		bson.Unmarshal(bytes, origin)
+		newSelector = bson.M{"$and": []bson.M{origin, {"delete_at": bson.M{"$exists": false}}}}
+	}
+
+	return m.Collection.Upsert(newSelector,update)
+	//return info, err
+}
+
+// UpsertId is a convenience helper equivalent to:
+//
+//     info, err := GCollect.Upsert(bson.M{"_id": id}, update)
+//
+// See the Upsert method for more details.
+func (m *GCollect) UpsertId(id interface{}, update interface{}) (info *mgo.ChangeInfo, err error) {
+	return m.Upsert(bson.D{{Name: "_id", Value: id}}, update)
+}
+
 // Update finds a single document matching the provided selector document
 // that is not marked as deleted (without field deleted_at) and partially
 // modifies it according to the update document.
@@ -298,41 +336,27 @@ func (m *GCollect) UpdateWithTrash(selector interface{}, update interface{}) err
 }
 
 // IncrementUpdate finds a single document matching the provided selector document
-// and performs a soft delete, then inserts the update document. Do not
-// use Update Operators here since it's actually an insertion operation.
+// and performs a soft delete, then inserts the update document. Do not extensively
+// use this func as it performs 4 operations in total which is not quite sufficient.
 //
 // If the session is in safe mode (see SetSafe) a ErrNotFound error is
 // returned if a document isn't found, or a value of type *LastError
 // when some other error is detected.
 func (m *GCollect) IncrementUpdate(selector interface{}, update interface{}) error {
-	var newSelector interface{}
-	if s, ok := selector.(bson.M); ok {
-		newSelector = bson.M{"$and": []bson.M{s, {"delete_at": bson.M{"$exists": false}}}}
-	} else {
-		bytes, _ := bson.Marshal(selector)
-		origin := bson.M{}
-		bson.Unmarshal(bytes, origin)
-		newSelector = bson.M{"$and": []bson.M{origin, {"delete_at": bson.M{"$exists": false}}}}
-	}
-	if err := m.Remove(newSelector); err != nil {
+	var newSelector bson.M
+	if err := m.Find(selector).One(&newSelector); err != nil {
 		return err
 	}
-
-	var newDoc interface{}
-	if s, ok := update.(bson.M); ok {
-		s["_id"] = bson.NewObjectId()
-		newDoc = s
-	} else {
-		bytes, _ := bson.Marshal(update)
-		origin := bson.M{}
-		bson.Unmarshal(bytes, origin)
-		origin["_id"] = bson.NewObjectId()
-		newDoc = origin
-	}
-
-	if err := m.Insert(newDoc); err != nil {
+	if err := m.Remove(bson.D{{Name: "_id", Value: newSelector["_id"]}}); err != nil {
 		return err
 	}
+	delete(newSelector,"_id")
+	newSelector["_id"] = bson.NewObjectId()
+	if err := m.Insert(newSelector); err != nil {
+		return err
+	}
+	m.Collection.UpdateId(newSelector["_id"],update)
+
 	return nil
 }
 
@@ -346,47 +370,46 @@ func (m *GCollect) IncrementUpdateId(id interface{}, update interface{}) error {
 }
 
 // UpdateAll finds all documents matching the provided selector document
-// and performs soft delete to them, then inserts the update document. Do
-// not use Update Operators here since it's actually an insertion operation.
+// and performs soft delete to them, then inserts the update document.
 //
 // If the session is in safe mode (see SetSafe) details of the executed
 // operation are returned in info or an error of type *LastError when
 // some problem is detected. It is not an error for the update to not be
 // applied on any documents because the selector doesn't match.
-func (m *GCollect) IncrementUpdateAll(selector interface{}, update interface{}) (info *mgo.ChangeInfo, err error) {
-	var newSelector interface{}
-	if s, ok := selector.(bson.M); ok {
-		newSelector = bson.M{"$and": []bson.M{s, {"delete_at": bson.M{"$exists": false}}}}
-	} else {
-		bytes, _ := bson.Marshal(selector)
-		origin := bson.M{}
-		bson.Unmarshal(bytes, origin)
-		newSelector = bson.M{"$and": []bson.M{origin, {"delete_at": bson.M{"$exists": false}}}}
-	}
-
-	info, err = m.RemoveAll(newSelector)
-	if err != nil {
-		return
-	}
-
-	var newDoc interface{}
-	if s, ok := update.(bson.M); ok {
-		newDoc = s
-	} else {
-		bytes, _ := bson.Marshal(update)
-		origin := bson.M{}
-		bson.Unmarshal(bytes, origin)
-		newDoc = origin
-	}
-
-	for i := 0; i < info.Updated; i++ {
-		if err = m.Insert(newDoc); err != nil {
-			return
-		}
-	}
-
-	return
-}
+//func (m *GCollect) IncrementUpdateAll(selector interface{}, update interface{}) (info *mgo.ChangeInfo, err error) {
+//	var newSelector interface{}
+//	if s, ok := selector.(bson.M); ok {
+//		newSelector = bson.M{"$and": []bson.M{s, {"delete_at": bson.M{"$exists": false}}}}
+//	} else {
+//		bytes, _ := bson.Marshal(selector)
+//		origin := bson.M{}
+//		bson.Unmarshal(bytes, origin)
+//		newSelector = bson.M{"$and": []bson.M{origin, {"delete_at": bson.M{"$exists": false}}}}
+//	}
+//
+//	info, err = m.RemoveAll(newSelector)
+//	if err != nil {
+//		return
+//	}
+//
+//	var newDoc interface{}
+//	if s, ok := update.(bson.M); ok {
+//		newDoc = s
+//	} else {
+//		bytes, _ := bson.Marshal(update)
+//		origin := bson.M{}
+//		bson.Unmarshal(bytes, origin)
+//		newDoc = origin
+//	}
+//
+//	for i := 0; i < info.Updated; i++ {
+//		if err = m.Insert(newDoc); err != nil {
+//			return
+//		}
+//	}
+//
+//	return
+//}
 
 // IncreUpsert finds a single document matching the provided selector document
 // and performs a soft delete, then inserts the update document.  If no

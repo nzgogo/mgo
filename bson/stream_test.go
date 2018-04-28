@@ -3,7 +3,7 @@ package bson_test
 import (
 	"bytes"
 
-	"github.com/globalsign/mgo/bson"
+	"github.com/nzgogo/mgo/bson"
 	. "gopkg.in/check.v1"
 )
 
