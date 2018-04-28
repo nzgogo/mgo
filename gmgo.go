@@ -2,7 +2,6 @@ package mgo
 
 import (
 	"crypto/tls"
-	"github.com/nzgogo/mgo"
 	"github.com/nzgogo/mgo/bson"
 	"net"
 	"strings"
@@ -17,14 +16,14 @@ const (
 type MgoDB interface {
 	Connect() error
 	Close()
-	Session() *mgo.Session
+	Session() *Session
 	DB(string) *GomgoDB
 }
 
 type mgodb struct {
-	conn     *mgo.Session
+	conn     *Session
 	opts     Options
-	dialInfo *mgo.DialInfo
+	dialInfo *DialInfo
 }
 
 func (d *mgodb) Connect() error {
@@ -36,7 +35,7 @@ func (d *mgodb) Connect() error {
 		tlsConfig.InsecureSkipVerify = true
 	}
 	if d.opts.sslMgo {
-		d.dialInfo.DialServer = func(addr *mgo.ServerAddr) (net.Conn, error) {
+		d.dialInfo.DialServer = func(addr *ServerAddr) (net.Conn, error) {
 			conn, err := tls.Dial(d.opts.Protocol, addr.String(), tlsConfig)
 			return conn, err
 		}
@@ -47,7 +46,7 @@ func (d *mgodb) Connect() error {
 	}
 
 	var err error
-	d.conn, err = mgo.DialWithInfo(d.dialInfo)
+	d.conn, err = DialWithInfo(d.dialInfo)
 	return err
 }
 
@@ -55,7 +54,7 @@ func (d *mgodb) Close() {
 	d.conn.Close()
 }
 
-func (d *mgodb) Session() *mgo.Session {
+func (d *mgodb) Session() *Session {
 	return d.conn
 }
 
@@ -69,7 +68,7 @@ func NewMongoDB(url string, opts ...Option) MgoDB {
 		sslMgo:   strings.Contains(url, "ssl=true"),
 	}
 	url = strings.Replace(url, "ssl=true", "", -1)
-	dialOp, err := mgo.ParseURL(url)
+	dialOp, err := ParseURL(url)
 	if err != nil {
 		panic("Failed to parse URI: " + err.Error())
 	}
@@ -85,7 +84,7 @@ func NewMongoDB(url string, opts ...Option) MgoDB {
 }
 
 type GomgoDB struct {
-	*mgo.Database
+	*Database
 }
 
 func (d *GomgoDB) C(name string) *GCollect {
@@ -93,7 +92,7 @@ func (d *GomgoDB) C(name string) *GCollect {
 }
 
 type GCollect struct {
-	*mgo.Collection
+	*Collection
 }
 
 // Count returns the total number of documents in the collection.
@@ -118,7 +117,7 @@ func (m *GCollect) Count() (n int, err error) {
 // those cases, the result argument is still unmarshalled into with the
 // received document so that any other custom values may be obtained if
 // desired.
-func (m *GCollect) Find(query interface{}) *mgo.Query {
+func (m *GCollect) Find(query interface{}) *Query {
 	if s, ok := query.(bson.M); ok {
 		return m.Collection.Find(bson.M{"$and": []bson.M{
 			s,
@@ -141,7 +140,7 @@ func (m *GCollect) Find(query interface{}) *mgo.Query {
 //     query := GCollect.Find(bson.M{"_id": id,"delete_at": bson.M{"$exists":false}},)
 //
 // See the Find method for more details.
-func (m *GCollect) FindId(id interface{}) *mgo.Query {
+func (m *GCollect) FindId(id interface{}) *Query {
 	return m.Collection.Find(bson.M{"$and": []bson.M{
 		{"_id": id},
 		{"delete_at": bson.M{"$exists": false}},
@@ -149,12 +148,12 @@ func (m *GCollect) FindId(id interface{}) *mgo.Query {
 }
 
 // See details in m.Collection.Find()
-func (m *GCollect) FindWithTrash(query interface{}) *mgo.Query {
+func (m *GCollect) FindWithTrash(query interface{}) *Query {
 	return m.Collection.Find(query)
 }
 
 // See details in m.Collection.FindId()
-func (m *GCollect) FindIdWithTrash(id interface{}) *mgo.Query {
+func (m *GCollect) FindIdWithTrash(id interface{}) *Query {
 	return m.Collection.FindId(id)
 }
 
@@ -194,7 +193,7 @@ func (m *GCollect) RemoveId(id interface{}) error {
 // In case the session is in safe mode (see the SetSafe method) and an
 // error happens when attempting the change, the returned error will be
 // of type *LastError.
-func (m *GCollect) RemoveAll(selector interface{}) (info *mgo.ChangeInfo, err error) {
+func (m *GCollect) RemoveAll(selector interface{}) (info *ChangeInfo, err error) {
 	update := bson.M{"$set": bson.M{"delete_at": time.Now()}}
 	return m.UpdateAll(selector, update)
 }
@@ -210,7 +209,7 @@ func (m *GCollect) ForceRemoveId(id interface{}) error {
 }
 
 // See details in m.Collection.RemoveAll()
-func (m *GCollect) ForceRemoveAll(selector interface{}) (info *mgo.ChangeInfo, err error) {
+func (m *GCollect) ForceRemoveAll(selector interface{}) (info *ChangeInfo, err error) {
 	return m.Collection.RemoveAll(selector)
 }
 
@@ -250,7 +249,7 @@ func (m *GCollect) UpdateId(id interface{}, update interface{}) error {
 // operation are returned in info or an error of type *LastError when
 // some problem is detected. It is not an error for the update to not be
 // applied on any documents because the selector doesn't match.
-func (m *GCollect) UpdateAll(selector interface{}, update interface{}) (info *mgo.ChangeInfo, err error) {
+func (m *GCollect) UpdateAll(selector interface{}, update interface{}) (info *ChangeInfo, err error) {
 	var newSelector interface{}
 	if s, ok := selector.(bson.M); ok {
 		newSelector = bson.M{"$and": []bson.M{s, {"delete_at": bson.M{"$exists": false}}}}
@@ -277,7 +276,7 @@ func (m *GCollect) UpdateAll(selector interface{}, update interface{}) (info *mg
 //     http://www.mongodb.org/display/DOCS/Updating
 //     http://www.mongodb.org/display/DOCS/Atomic+Operations
 //
-func (m *GCollect) Upsert(selector interface{}, update interface{}) (info *mgo.ChangeInfo, err error) {
+func (m *GCollect) Upsert(selector interface{}, update interface{}) (info *ChangeInfo, err error) {
 	var newSelector interface{}
 	if s, ok := selector.(bson.M); ok {
 		newSelector = bson.M{"$and": []bson.M{s, {"delete_at": bson.M{"$exists": false}}}}
@@ -297,7 +296,7 @@ func (m *GCollect) Upsert(selector interface{}, update interface{}) (info *mgo.C
 //     info, err := GCollect.Upsert(bson.M{"_id": id}, update)
 //
 // See the Upsert method for more details.
-func (m *GCollect) UpsertId(id interface{}, update interface{}) (info *mgo.ChangeInfo, err error) {
+func (m *GCollect) UpsertId(id interface{}, update interface{}) (info *ChangeInfo, err error) {
 	return m.Upsert(bson.D{{Name: "_id", Value: id}}, update)
 }
 
@@ -431,7 +430,7 @@ func (m *GCollect) IncreUpsert(selector interface{}, update interface{}) (err er
 	}
 
 	err = m.Remove(newSelector)
-	if err != nil && err != mgo.ErrNotFound {
+	if err != nil && err != ErrNotFound {
 		return
 	}
 	err = m.Insert(update)
