@@ -2,15 +2,16 @@ package mgo
 
 import (
 	"crypto/tls"
-	"github.com/nzgogo/mgo/bson"
 	"net"
 	"strings"
 	"time"
+
+	"github.com/nzgogo/mgo/bson"
 )
 
 const (
 	DefaultConnTimeout = 60 * time.Second
-	DefaultProtocol        = "tcp"
+	DefaultProtocol    = "tcp"
 )
 
 type MgoDB interface {
@@ -101,7 +102,7 @@ func (m *GCollect) Count() (n int, err error) {
 }
 
 // Find prepares a query using the provided document. A additional condition
-// is added to the query -> { delete_at: { $exists: false } }.
+// is added to the query -> { deleted_at: { $exists: false } }.
 // The document may be a map or a struct value capable of being marshalled with bson.
 // The map may be a generic one using interface{} for its key and/or values, such as
 // bson.M, or it may be a properly typed map.  Providing nil as the document
@@ -121,7 +122,7 @@ func (m *GCollect) Find(query interface{}) *Query {
 	if s, ok := query.(bson.M); ok {
 		return m.Collection.Find(bson.M{"$and": []bson.M{
 			s,
-			{"delete_at": bson.M{"$exists": false}},
+			{"deleted_at": bson.M{"$exists": false}},
 		}})
 	} else {
 		bytes, _ := bson.Marshal(query)
@@ -129,7 +130,7 @@ func (m *GCollect) Find(query interface{}) *Query {
 		bson.Unmarshal(bytes, origin)
 		return m.Collection.Find(bson.M{"$and": []bson.M{
 			origin,
-			{"delete_at": bson.M{"$exists": false}},
+			{"deleted_at": bson.M{"$exists": false}},
 		}})
 	}
 	return nil
@@ -137,13 +138,13 @@ func (m *GCollect) Find(query interface{}) *Query {
 
 // FindId is a convenience helper equivalent to:
 //
-//     query := GCollect.Find(bson.M{"_id": id,"delete_at": bson.M{"$exists":false}},)
+//     query := GCollect.Find(bson.M{"_id": id,"deleted_at": bson.M{"$exists":false}},)
 //
 // See the Find method for more details.
 func (m *GCollect) FindId(id interface{}) *Query {
 	return m.Collection.Find(bson.M{"$and": []bson.M{
 		{"_id": id},
-		{"delete_at": bson.M{"$exists": false}},
+		{"deleted_at": bson.M{"$exists": false}},
 	}})
 }
 
@@ -159,21 +160,21 @@ func (m *GCollect) FindIdWithTrash(id interface{}) *Query {
 
 // Remove finds a single document matching the provided selector document
 // and performs a soft delete to the matched document (add a pair of
-// key/value "delete_at":time.Now()).
+// key/value "deleted_at":time.Now()).
 //
 // If the session is in safe mode (see SetSafe) a ErrNotFound error is
 // returned if a document isn't found, or a value of type *LastError
 // when some other error is detected.
 func (m *GCollect) Remove(selector interface{}) error {
-	update := bson.M{"$set": bson.M{"delete_at": time.Now()}}
+	update := bson.M{"$set": bson.M{"deleted_at": time.Now()}}
 	var newSelector interface{}
 	if s, ok := selector.(bson.M); ok {
-		newSelector = bson.M{"$and": []bson.M{s, {"delete_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{s, {"deleted_at": bson.M{"$exists": false}}}}
 	} else {
 		bytes, _ := bson.Marshal(selector)
 		origin := bson.M{}
 		bson.Unmarshal(bytes, origin)
-		newSelector = bson.M{"$and": []bson.M{origin, {"delete_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{origin, {"deleted_at": bson.M{"$exists": false}}}}
 	}
 	return m.Collection.Update(newSelector, update)
 }
@@ -194,7 +195,7 @@ func (m *GCollect) RemoveId(id interface{}) error {
 // error happens when attempting the change, the returned error will be
 // of type *LastError.
 func (m *GCollect) RemoveAll(selector interface{}) (info *ChangeInfo, err error) {
-	update := bson.M{"$set": bson.M{"delete_at": time.Now()}}
+	update := bson.M{"$set": bson.M{"deleted_at": time.Now()}}
 	return m.UpdateAll(selector, update)
 }
 
@@ -223,12 +224,12 @@ func (m *GCollect) ForceRemoveAll(selector interface{}) (info *ChangeInfo, err e
 func (m *GCollect) Update(selector interface{}, update interface{}) error {
 	var newSelector interface{}
 	if s, ok := selector.(bson.M); ok {
-		newSelector = bson.M{"$and": []bson.M{s, {"delete_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{s, {"deleted_at": bson.M{"$exists": false}}}}
 	} else {
 		bytes, _ := bson.Marshal(selector)
 		origin := bson.M{}
 		bson.Unmarshal(bytes, origin)
-		newSelector = bson.M{"$and": []bson.M{origin, {"delete_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{origin, {"deleted_at": bson.M{"$exists": false}}}}
 	}
 	return m.Collection.Update(newSelector, update)
 }
@@ -252,12 +253,12 @@ func (m *GCollect) UpdateId(id interface{}, update interface{}) error {
 func (m *GCollect) UpdateAll(selector interface{}, update interface{}) (info *ChangeInfo, err error) {
 	var newSelector interface{}
 	if s, ok := selector.(bson.M); ok {
-		newSelector = bson.M{"$and": []bson.M{s, {"delete_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{s, {"deleted_at": bson.M{"$exists": false}}}}
 	} else {
 		bytes, _ := bson.Marshal(selector)
 		origin := bson.M{}
 		bson.Unmarshal(bytes, origin)
-		newSelector = bson.M{"$and": []bson.M{origin, {"delete_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{origin, {"deleted_at": bson.M{"$exists": false}}}}
 	}
 	return m.Collection.UpdateAll(newSelector, update)
 }
@@ -279,15 +280,15 @@ func (m *GCollect) UpdateAll(selector interface{}, update interface{}) (info *Ch
 func (m *GCollect) Upsert(selector interface{}, update interface{}) (info *ChangeInfo, err error) {
 	var newSelector interface{}
 	if s, ok := selector.(bson.M); ok {
-		newSelector = bson.M{"$and": []bson.M{s, {"delete_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{s, {"deleted_at": bson.M{"$exists": false}}}}
 	} else {
 		bytes, _ := bson.Marshal(selector)
 		origin := bson.M{}
 		bson.Unmarshal(bytes, origin)
-		newSelector = bson.M{"$and": []bson.M{origin, {"delete_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{origin, {"deleted_at": bson.M{"$exists": false}}}}
 	}
 
-	return m.Collection.Upsert(newSelector,update)
+	return m.Collection.Upsert(newSelector, update)
 	//return info, err
 }
 
@@ -310,12 +311,12 @@ func (m *GCollect) UpsertId(id interface{}, update interface{}) (info *ChangeInf
 func (m *GCollect) UpdateParts(selector interface{}, update interface{}) error {
 	var newSelector interface{}
 	if s, ok := selector.(bson.M); ok {
-		newSelector = bson.M{"$and": []bson.M{s, {"delete_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{s, {"deleted_at": bson.M{"$exists": false}}}}
 	} else {
 		bytes, _ := bson.Marshal(selector)
 		origin := bson.M{}
 		bson.Unmarshal(bytes, origin)
-		newSelector = bson.M{"$and": []bson.M{origin, {"delete_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{origin, {"deleted_at": bson.M{"$exists": false}}}}
 	}
 	var newUpdate interface{}
 	if s, ok := selector.(bson.M); ok {
@@ -349,12 +350,12 @@ func (m *GCollect) IncrementUpdate(selector interface{}, update interface{}) err
 	if err := m.Remove(bson.D{{Name: "_id", Value: newSelector["_id"]}}); err != nil {
 		return err
 	}
-	delete(newSelector,"_id")
+	delete(newSelector, "_id")
 	newSelector["_id"] = bson.NewObjectId()
 	if err := m.Insert(newSelector); err != nil {
 		return err
 	}
-	m.Collection.UpdateId(newSelector["_id"],update)
+	m.Collection.UpdateId(newSelector["_id"], update)
 
 	return nil
 }
@@ -378,12 +379,12 @@ func (m *GCollect) IncrementUpdateId(id interface{}, update interface{}) error {
 //func (m *GCollect) IncrementUpdateAll(selector interface{}, update interface{}) (info *mgo.ChangeInfo, err error) {
 //	var newSelector interface{}
 //	if s, ok := selector.(bson.M); ok {
-//		newSelector = bson.M{"$and": []bson.M{s, {"delete_at": bson.M{"$exists": false}}}}
+//		newSelector = bson.M{"$and": []bson.M{s, {"deleted_at": bson.M{"$exists": false}}}}
 //	} else {
 //		bytes, _ := bson.Marshal(selector)
 //		origin := bson.M{}
 //		bson.Unmarshal(bytes, origin)
-//		newSelector = bson.M{"$and": []bson.M{origin, {"delete_at": bson.M{"$exists": false}}}}
+//		newSelector = bson.M{"$and": []bson.M{origin, {"deleted_at": bson.M{"$exists": false}}}}
 //	}
 //
 //	info, err = m.RemoveAll(newSelector)
@@ -421,12 +422,12 @@ func (m *GCollect) IncrementUpdateId(id interface{}, update interface{}) error {
 func (m *GCollect) IncreUpsert(selector interface{}, update interface{}) (err error) {
 	var newSelector interface{}
 	if s, ok := selector.(bson.M); ok {
-		newSelector = bson.M{"$and": []bson.M{s, {"delete_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{s, {"deleted_at": bson.M{"$exists": false}}}}
 	} else {
 		bytes, _ := bson.Marshal(selector)
 		origin := bson.M{}
 		bson.Unmarshal(bytes, origin)
-		newSelector = bson.M{"$and": []bson.M{origin, {"delete_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{origin, {"deleted_at": bson.M{"$exists": false}}}}
 	}
 
 	err = m.Remove(newSelector)
