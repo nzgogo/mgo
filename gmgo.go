@@ -319,7 +319,7 @@ func (m *GCollect) UpdateParts(selector interface{}, update interface{}) error {
 		newSelector = bson.M{"$and": []bson.M{origin, {"deleted_at": bson.M{"$exists": false}}}}
 	}
 	var newUpdate interface{}
-	if s, ok := selector.(bson.M); ok {
+	if s, ok := update.(bson.M); ok {
 		newUpdate = bson.M{"$set": s}
 	} else {
 		bytes, _ := bson.Marshal(update)
