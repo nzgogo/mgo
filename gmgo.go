@@ -102,7 +102,7 @@ func (m *GCollect) Count() (n int, err error) {
 }
 
 // Find prepares a query using the provided document. A additional condition
-// is added to the query -> { deleted_at: { $exists: false } }.
+// is added to the query -> { deletedAt: { $exists: false } }.
 // The document may be a map or a struct value capable of being marshalled with bson.
 // The map may be a generic one using interface{} for its key and/or values, such as
 // bson.M, or it may be a properly typed map.  Providing nil as the document
@@ -122,7 +122,7 @@ func (m *GCollect) Find(query interface{}) *Query {
 	if s, ok := query.(bson.M); ok {
 		return m.Collection.Find(bson.M{"$and": []bson.M{
 			s,
-			{"deleted_at": bson.M{"$exists": false}},
+			{"deletedAt": bson.M{"$exists": false}},
 		}})
 	} else {
 		bytes, _ := bson.Marshal(query)
@@ -130,7 +130,7 @@ func (m *GCollect) Find(query interface{}) *Query {
 		bson.Unmarshal(bytes, origin)
 		return m.Collection.Find(bson.M{"$and": []bson.M{
 			origin,
-			{"deleted_at": bson.M{"$exists": false}},
+			{"deletedAt": bson.M{"$exists": false}},
 		}})
 	}
 	return nil
@@ -138,13 +138,13 @@ func (m *GCollect) Find(query interface{}) *Query {
 
 // FindId is a convenience helper equivalent to:
 //
-//     query := GCollect.Find(bson.M{"_id": id,"deleted_at": bson.M{"$exists":false}},)
+//     query := GCollect.Find(bson.M{"_id": id,"deletedAt": bson.M{"$exists":false}},)
 //
 // See the Find method for more details.
 func (m *GCollect) FindId(id interface{}) *Query {
 	return m.Collection.Find(bson.M{"$and": []bson.M{
 		{"_id": id},
-		{"deleted_at": bson.M{"$exists": false}},
+		{"deletedAt": bson.M{"$exists": false}},
 	}})
 }
 
@@ -160,21 +160,21 @@ func (m *GCollect) FindIdWithTrash(id interface{}) *Query {
 
 // Remove finds a single document matching the provided selector document
 // and performs a soft delete to the matched document (add a pair of
-// key/value "deleted_at":time.Now()).
+// key/value "deletedAt":time.Now()).
 //
 // If the session is in safe mode (see SetSafe) a ErrNotFound error is
 // returned if a document isn't found, or a value of type *LastError
 // when some other error is detected.
 func (m *GCollect) Remove(selector interface{}) error {
-	update := bson.M{"$set": bson.M{"deleted_at": time.Now()}}
+	update := bson.M{"$set": bson.M{"deletedAt": time.Now()}}
 	var newSelector interface{}
 	if s, ok := selector.(bson.M); ok {
-		newSelector = bson.M{"$and": []bson.M{s, {"deleted_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{s, {"deletedAt": bson.M{"$exists": false}}}}
 	} else {
 		bytes, _ := bson.Marshal(selector)
 		origin := bson.M{}
 		bson.Unmarshal(bytes, origin)
-		newSelector = bson.M{"$and": []bson.M{origin, {"deleted_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{origin, {"deletedAt": bson.M{"$exists": false}}}}
 	}
 	return m.Collection.Update(newSelector, update)
 }
@@ -195,7 +195,7 @@ func (m *GCollect) RemoveId(id interface{}) error {
 // error happens when attempting the change, the returned error will be
 // of type *LastError.
 func (m *GCollect) RemoveAll(selector interface{}) (info *ChangeInfo, err error) {
-	update := bson.M{"$set": bson.M{"deleted_at": time.Now()}}
+	update := bson.M{"$set": bson.M{"deletedAt": time.Now()}}
 	return m.UpdateAll(selector, update)
 }
 
@@ -215,7 +215,7 @@ func (m *GCollect) ForceRemoveAll(selector interface{}) (info *ChangeInfo, err e
 }
 
 // Update finds a single document matching the provided selector document
-// that is not marked as deleted (without field deleted_at) and modifies
+// that is not marked as deleted (without field deletedAt) and modifies
 // it according to the update document.
 
 // If the session is in safe mode (see SetSafe) a ErrNotFound error is
@@ -224,12 +224,12 @@ func (m *GCollect) ForceRemoveAll(selector interface{}) (info *ChangeInfo, err e
 func (m *GCollect) Update(selector interface{}, update interface{}) error {
 	var newSelector interface{}
 	if s, ok := selector.(bson.M); ok {
-		newSelector = bson.M{"$and": []bson.M{s, {"deleted_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{s, {"deletedAt": bson.M{"$exists": false}}}}
 	} else {
 		bytes, _ := bson.Marshal(selector)
 		origin := bson.M{}
 		bson.Unmarshal(bytes, origin)
-		newSelector = bson.M{"$and": []bson.M{origin, {"deleted_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{origin, {"deletedAt": bson.M{"$exists": false}}}}
 	}
 	return m.Collection.Update(newSelector, update)
 }
@@ -244,7 +244,7 @@ func (m *GCollect) UpdateId(id interface{}, update interface{}) error {
 }
 
 // UpdateAll finds all documents matching the provided selector document
-// that is not marked as deleted (without field deleted_at) and modifies
+// that is not marked as deleted (without field deletedAt) and modifies
 // them according to the update document.
 // If the session is in safe mode (see SetSafe) details of the executed
 // operation are returned in info or an error of type *LastError when
@@ -253,17 +253,17 @@ func (m *GCollect) UpdateId(id interface{}, update interface{}) error {
 func (m *GCollect) UpdateAll(selector interface{}, update interface{}) (info *ChangeInfo, err error) {
 	var newSelector interface{}
 	if s, ok := selector.(bson.M); ok {
-		newSelector = bson.M{"$and": []bson.M{s, {"deleted_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{s, {"deletedAt": bson.M{"$exists": false}}}}
 	} else {
 		bytes, _ := bson.Marshal(selector)
 		origin := bson.M{}
 		bson.Unmarshal(bytes, origin)
-		newSelector = bson.M{"$and": []bson.M{origin, {"deleted_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{origin, {"deletedAt": bson.M{"$exists": false}}}}
 	}
 	return m.Collection.UpdateAll(newSelector, update)
 }
 
-// Upsert finds a single document (without field deleted_at) matching the
+// Upsert finds a single document (without field deletedAt) matching the
 // provided selector document and modifies it according to the update
 // document.  If no document matching the selector is found, the update
 // document is applied to the selector document and the result is inserted
@@ -280,12 +280,12 @@ func (m *GCollect) UpdateAll(selector interface{}, update interface{}) (info *Ch
 func (m *GCollect) Upsert(selector interface{}, update interface{}) (info *ChangeInfo, err error) {
 	var newSelector interface{}
 	if s, ok := selector.(bson.M); ok {
-		newSelector = bson.M{"$and": []bson.M{s, {"deleted_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{s, {"deletedAt": bson.M{"$exists": false}}}}
 	} else {
 		bytes, _ := bson.Marshal(selector)
 		origin := bson.M{}
 		bson.Unmarshal(bytes, origin)
-		newSelector = bson.M{"$and": []bson.M{origin, {"deleted_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{origin, {"deletedAt": bson.M{"$exists": false}}}}
 	}
 
 	return m.Collection.Upsert(newSelector, update)
@@ -302,7 +302,7 @@ func (m *GCollect) UpsertId(id interface{}, update interface{}) (info *ChangeInf
 }
 
 // UpdateParts finds a single document matching the provided selector document
-// that is not marked as deleted (without field deleted_at) and partially
+// that is not marked as deleted (without field deletedAt) and partially
 // modifies it according to the update document.
 
 // If the session is in safe mode (see SetSafe) a ErrNotFound error is
@@ -311,12 +311,12 @@ func (m *GCollect) UpsertId(id interface{}, update interface{}) (info *ChangeInf
 func (m *GCollect) UpdateParts(selector interface{}, update interface{}) error {
 	var newSelector interface{}
 	if s, ok := selector.(bson.M); ok {
-		newSelector = bson.M{"$and": []bson.M{s, {"deleted_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{s, {"deletedAt": bson.M{"$exists": false}}}}
 	} else {
 		bytes, _ := bson.Marshal(selector)
 		origin := bson.M{}
 		bson.Unmarshal(bytes, origin)
-		newSelector = bson.M{"$and": []bson.M{origin, {"deleted_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{origin, {"deletedAt": bson.M{"$exists": false}}}}
 	}
 	var newUpdate interface{}
 	if s, ok := update.(bson.M); ok {
@@ -370,7 +370,7 @@ func (m *GCollect) IncrementUpdateId(id interface{}, update interface{}) error {
 }
 
 // IncrementUpdateParts finds a single document matching the provided selector document
-// that is not marked as deleted (without field deleted_at) and performs partially
+// that is not marked as deleted (without field deletedAt) and performs partially
 // increment update on that record.
 
 // If the session is in safe mode (see SetSafe) a ErrNotFound error is
@@ -399,7 +399,7 @@ func (m *GCollect) IncrementUpdateParts(selector interface{}, update interface{}
 		bson.Unmarshal(bytes, origin)
 		newUpdate = bson.M{"$set": origin}
 	}
-	return m.Collection.Update(bson.D{{"_id",newSelector["_id"]}}, newUpdate)
+	return m.Collection.Update(bson.D{{"_id", newSelector["_id"]}}, newUpdate)
 }
 
 // UpdateAll finds all documents matching the provided selector document
@@ -412,12 +412,12 @@ func (m *GCollect) IncrementUpdateParts(selector interface{}, update interface{}
 //func (m *GCollect) IncrementUpdateAll(selector interface{}, update interface{}) (info *mgo.ChangeInfo, err error) {
 //	var newSelector interface{}
 //	if s, ok := selector.(bson.M); ok {
-//		newSelector = bson.M{"$and": []bson.M{s, {"deleted_at": bson.M{"$exists": false}}}}
+//		newSelector = bson.M{"$and": []bson.M{s, {"deletedAt": bson.M{"$exists": false}}}}
 //	} else {
 //		bytes, _ := bson.Marshal(selector)
 //		origin := bson.M{}
 //		bson.Unmarshal(bytes, origin)
-//		newSelector = bson.M{"$and": []bson.M{origin, {"deleted_at": bson.M{"$exists": false}}}}
+//		newSelector = bson.M{"$and": []bson.M{origin, {"deletedAt": bson.M{"$exists": false}}}}
 //	}
 //
 //	info, err = m.RemoveAll(newSelector)
@@ -455,12 +455,12 @@ func (m *GCollect) IncrementUpdateParts(selector interface{}, update interface{}
 func (m *GCollect) IncreUpsert(selector interface{}, update interface{}) (err error) {
 	var newSelector interface{}
 	if s, ok := selector.(bson.M); ok {
-		newSelector = bson.M{"$and": []bson.M{s, {"deleted_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{s, {"deletedAt": bson.M{"$exists": false}}}}
 	} else {
 		bytes, _ := bson.Marshal(selector)
 		origin := bson.M{}
 		bson.Unmarshal(bytes, origin)
-		newSelector = bson.M{"$and": []bson.M{origin, {"deleted_at": bson.M{"$exists": false}}}}
+		newSelector = bson.M{"$and": []bson.M{origin, {"deletedAt": bson.M{"$exists": false}}}}
 	}
 
 	err = m.Remove(newSelector)
