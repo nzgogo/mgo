@@ -12,6 +12,7 @@ import (
 const (
 	DefaultConnTimeout = 60 * time.Second
 	DefaultProtocol    = "tcp"
+	DefaultSessionMode = PrimaryPreferred
 )
 
 type MgoDB interface {
@@ -48,6 +49,11 @@ func (d *mgodb) Connect() error {
 
 	var err error
 	d.conn, err = DialWithInfo(d.dialInfo)
+
+	if err != nil {
+		d.conn.SetMode(DefaultSessionMode, true)
+	}
+
 	return err
 }
 
