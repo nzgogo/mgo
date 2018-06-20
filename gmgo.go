@@ -356,14 +356,12 @@ func (m *GCollect) IncrementUpdate(selector interface{}, update interface{}) (id
 	if err = m.Remove(bson.D{{Name: "_id", Value: newSelector["_id"]}}); err != nil {
 		return
 	}
-	delete(newSelector, "_id")
 	id = bson.NewObjectId()
 	newSelector["_id"] = id
 	if err = m.Insert(newSelector); err != nil {
 		return
 	}
 	err = m.Collection.UpdateId(newSelector["_id"], update)
-
 	return
 }
 
@@ -391,7 +389,6 @@ func (m *GCollect) IncrementUpdateParts(selector interface{}, update interface{}
 	if err = m.Remove(bson.D{{Name: "_id", Value: newSelector["_id"]}}); err != nil {
 		return
 	}
-	delete(newSelector, "_id")
 	id = bson.NewObjectId()
 	newSelector["_id"] = id
 	if err = m.Insert(newSelector); err != nil {
