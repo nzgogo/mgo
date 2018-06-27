@@ -246,7 +246,7 @@ func (m *GCollect) Update(selector interface{}, update interface{}) error {
 //
 // See the Update method for more details.
 func (m *GCollect) UpdateId(id interface{}, update interface{}) error {
-	return m.UpdateId(id, update)
+	return m.Update(bson.D{{Name: "_id", Value: id}}, update)
 }
 
 // UpdateAll finds all documents matching the provided selector document
