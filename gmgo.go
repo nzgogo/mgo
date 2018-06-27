@@ -246,7 +246,7 @@ func (m *GCollect) Update(selector interface{}, update interface{}) error {
 //
 // See the Update method for more details.
 func (m *GCollect) UpdateId(id interface{}, update interface{}) error {
-	return m.Update(bson.M{"_id": id}, update)
+	return m.UpdateId(id, update)
 }
 
 // UpdateAll finds all documents matching the provided selector document
@@ -348,22 +348,21 @@ func (m *GCollect) UpdateWithTrash(selector interface{}, update interface{}) err
 // If the session is in safe mode (see SetSafe) a ErrNotFound error is
 // returned if a document isn't found, or a value of type *LastError
 // when some other error is detected.
-func (m *GCollect) IncrementUpdate(selector interface{}, update interface{}) error {
+func (m *GCollect) IncrementUpdate(selector interface{}, update interface{}) (id bson.ObjectId, err error) {
 	var newSelector bson.M
-	if err := m.Find(selector).One(&newSelector); err != nil {
-		return err
+	if err = m.Find(selector).One(&newSelector); err != nil {
+		return
 	}
-	if err := m.Remove(bson.D{{Name: "_id", Value: newSelector["_id"]}}); err != nil {
-		return err
+	if err = m.Remove(bson.D{{Name: "_id", Value: newSelector["_id"]}}); err != nil {
+		return
 	}
-	delete(newSelector, "_id")
-	newSelector["_id"] = bson.NewObjectId()
-	if err := m.Insert(newSelector); err != nil {
-		return err
+	id = bson.NewObjectId()
+	newSelector["_id"] = id
+	if err = m.Insert(newSelector); err != nil {
+		return
 	}
-	m.Collection.UpdateId(newSelector["_id"], update)
-
-	return nil
+	err = m.Collection.UpdateId(newSelector["_id"], update)
+	return
 }
 
 // UpdateId is a convenience helper equivalent to:
@@ -371,7 +370,7 @@ func (m *GCollect) IncrementUpdate(selector interface{}, update interface{}) err
 //     err := GCollect.Update(bson.M{"_id": id}, update)
 //
 // See the Update method for more details.
-func (m *GCollect) IncrementUpdateId(id interface{}, update interface{}) error {
+func (m *GCollect) IncrementUpdateId(id interface{}, update interface{}) (bson.ObjectId, error) {
 	return m.IncrementUpdate(bson.D{{Name: "_id", Value: id}}, update)
 }
 
@@ -382,18 +381,18 @@ func (m *GCollect) IncrementUpdateId(id interface{}, update interface{}) error {
 // If the session is in safe mode (see SetSafe) a ErrNotFound error is
 // returned if a document isn't found, or a value of type *LastError
 // when some other error is detected.
-func (m *GCollect) IncrementUpdateParts(selector interface{}, update interface{}) error {
+func (m *GCollect) IncrementUpdateParts(selector interface{}, update interface{}) (id bson.ObjectId, err error) {
 	var newSelector bson.M
-	if err := m.Find(selector).One(&newSelector); err != nil {
-		return err
+	if err = m.Find(selector).One(&newSelector); err != nil {
+		return
 	}
-	if err := m.Remove(bson.D{{Name: "_id", Value: newSelector["_id"]}}); err != nil {
-		return err
+	if err = m.Remove(bson.D{{Name: "_id", Value: newSelector["_id"]}}); err != nil {
+		return
 	}
-	delete(newSelector, "_id")
-	newSelector["_id"] = bson.NewObjectId()
-	if err := m.Insert(newSelector); err != nil {
-		return err
+	id = bson.NewObjectId()
+	newSelector["_id"] = id
+	if err = m.Insert(newSelector); err != nil {
+		return
 	}
 
 	var newUpdate interface{}
@@ -405,7 +404,8 @@ func (m *GCollect) IncrementUpdateParts(selector interface{}, update interface{}
 		bson.Unmarshal(bytes, origin)
 		newUpdate = bson.M{"$set": origin}
 	}
-	return m.Collection.Update(bson.D{{"_id", newSelector["_id"]}}, newUpdate)
+	err = m.Collection.Update(bson.D{{"_id",newSelector["_id"]}}, newUpdate)
+	return
 }
 
 // UpdateAll finds all documents matching the provided selector document
